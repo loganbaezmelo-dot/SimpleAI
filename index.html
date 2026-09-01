@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SimpleAI</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #00ff66;
+      font-family: "Courier New", Courier, monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #chat-container {
+      width: 100%;
+      max-width: 650px;
+      border: 2px solid #00ff66;
+      background: #181818;
+      display: flex;
+      flex-direction: column;
+      height: 75vh;
+      box-shadow: 0 0 15px rgba(0, 255, 102, 0.2);
+    }
+    #chat-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    .user {
+      color: #fff;
+    }
+    .bot {
+      color: #00ff66;
+    }
+    #input-form {
+      display: flex;
+      border-top: 2px solid #00ff66;
+    }
+    #user-input {
+      flex: 1;
+      background: #000;
+      border: none;
+      color: #00ff66;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 1rem;
+      outline: none;
+    }
+    #send-btn {
+      background: #00ff66;
+      color: #000;
+      border: none;
+      padding: 0 20px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #send-btn:hover {
+      background: #00cc52;
+    }
+  </style>
+</head>
+<body>
+
+<div id="chat-container">
+  <div id="chat-log"></div>
+  <form id="input-form">
+    <input type="text" id="user-input" autocomplete="off" placeholder="Type your thoughts..." autofocus />
+    <button type="submit" id="send-btn">Send</button>
+  </form>
+</div>
+
+<script>
+const chatLog = document.getElementById("chat-log");
+const form = document.getElementById("input-form");
+const input = document.getElementById("user-input");
+
+const pronounMap = {
+  "i": "you",
+  "you": "I",
+  "me": "you",
+  "my": "your",
+  "your": "my",
+  "am": "are",
+  "are": "am",
+  "was": "were",
+  "i'm": "you are",
+  "you're": "I am",
+  "myself": "yourself",
+  "yourself": "myself"
+};
+
+const patterns = [
+  {
+    regex: /remember (.*)/i,
+    responses: [
+      "Do you often think of $1?",
+      "Does thinking of $1 bring anything else to mind?",
+      "Why do you remember $1 right now?"
+    ]
+  },
+  {
+    regex: /i need (.*)/i,
+    responses: [
+      "Why do you need $1?",
+      "Would getting $1 really help you?",
+      "What if you never get $1?"
+    ]
+  },
+  {
+    regex: /i am (.*)/i,
+    responses: [
+      "Did you come to me because you are $1?",
+      "How long have you been $1?",
+      "How do you feel about being $1?"
+    ]
+  },
+  {
+    regex: /i feel (.*)/i,
+    responses: [
+      "Tell me more about feeling $1.",
+      "Do you often feel $1?",
+      "Does feeling $1 bother you?"
+    ]
+  },
+  {
+    regex: /why don't you (.*)/i,
+    responses: [
+      "Do you really believe I don't $1?",
+      "Perhaps in time I will $1.",
+      "Do you want me to $1?"
+    ]
+  },
+  {
+    regex: /why can't i (.*)/i,
+    responses: [
+      "Do you think you should be able to $1?",
+      "If you could $1, what would you do?",
+      "What makes it hard to $1?"
+    ]
+  },
+  {
+    regex: /(.*) (mother|father|mom|dad|family|brother|sister)(.*)/i,
+    responses: [
+      "Tell me more about your family.",
+      "How does that relate to your parents?",
+      "Did your family influence those thoughts?"
+    ]
+  },
+  {
+    regex: /(yes|yeah|sure)/i,
+    responses: [
+      "You seem quite positive.",
+      "Are you sure?",
+      "I see. Tell me more."
+    ]
+  },
+  {
+    regex: /(no|nope|nah)/i,
+    responses: [
+      "Why not?",
+      "You sound a bit negative.",
+      "Are you saying that just to disagree?"
+    ]
+  }
+];
+
+const fallbackResponses = [
+  "Please, go on.",
+  "What does that suggest to you?",
+  "Can you elaborate on that?",
+  "I'm not sure I understand you fully.",
+  "How does that make you feel?"
+];
+
+function reflectPronouns(text) {
+  const words = text.toLowerCase().split(/\s+/);
+  const reflected = words.map(word => {
+    const cleanWord = word.replace(/[^\w']/g, "");
+    return pronounMap[cleanWord] || word;
+  });
+  return reflected.join(" ");
+}
+
+function generateResponse(message) {
+  const cleanMessage = message.trim();
+
+  for (let rule of patterns) {
+    const match = cleanMessage.match(rule.regex);
+    if (match) {
+      const randomResponse = rule.responses[Math.floor(Math.random() * rule.responses.length)];
+      if (match[1]) {
+        const transformedPart = reflectPronouns(match[1]);
+        return randomResponse.replace("$1", transformedPart);
+      }
+      return randomResponse;
+    }
+  }
+
+  return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+}
+
+function appendMessage(sender, text, className) {
+  const msgEl = document.createElement("div");
+  msgEl.className = className;
+  msgEl.textContent = `${sender}: ${text}\n`;
+  chatLog.appendChild(msgEl);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+appendMessage("SimpleAI", "How do you do. Please tell me what is troubling you.", "bot");
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+
+  appendMessage("You", text, "user");
+  input.value = "";
+
+  setTimeout(() => {
+    const reply = generateResponse(text);
+    appendMessage("SimpleAI", reply, "bot");
+  }, 350);
+});
+</script>
+
+</body>
+</html>

@@ -83,6 +83,8 @@ const chatLog = document.getElementById("chat-log");
 const form = document.getElementById("input-form");
 const input = document.getElementById("user-input");
 
+let currentTopic = "";
+
 const reflections = {
   "i": "you",
   "me": "you",
@@ -107,6 +109,26 @@ const patterns = [
       "Hello! What's on your mind today?"
     ]
   },
+  // Follow-up: "It's doing good", "It is great", "it works"
+  {
+    regex: /^it('?s| is)?\s*(doing\s+)?(good|great|fine|alright|pretty cool|awesome|working|broken|bad)/i,
+    responses: [
+      "Glad to hear your {topic} is doing well! What do you like playing or doing on it the most?",
+      "Nice, glad your {topic} is holding up. Any cool stuff you've done with it recently?",
+      "Awesome! Always nice when your {topic} runs smooth. What are you using it for right now?"
+    ],
+    needsTopic: true
+  },
+  // Follow-up: "I like it", "I love it"
+  {
+    regex: /^i (love|like|enjoy) it/i,
+    responses: [
+      "Awesome! What's the best thing about your {topic} so far?",
+      "Glad you're enjoying your {topic}! How often do you get to use it?",
+      "Nice! What made you like your {topic} so much?"
+    ],
+    needsTopic: true
+  },
   {
     regex: /^(doing|feeling) (great|good|fine|alright|okay|bad|terrible|meh)/i,
     responses: [
@@ -123,40 +145,39 @@ const patterns = [
       "Nice! What's new with you?"
     ]
   },
+  // Topic setter: "I have a Wii U"
   {
     regex: /^i have (an?|the|some)?\s*(.*)/i,
+    setTopicIndex: 2,
     responses: [
       "Yo, you have $2? How long have you had that?",
       "Nice! What do you usually use $2 for?",
       "Oh cool, how are you liking $2?"
     ]
   },
+  // Topic setter: "I play / code / build"
   {
-    regex: /^i (do|play|make|code|build) (.*)/i,
+    regex: /^i (do|play|make|code|build) (an?|the)?\s*(.*)/i,
+    setTopicIndex: 3,
     responses: [
-      "That's sick, how long have you been doing that?",
-      "Nice! What got you into that?",
-      "Sounds fun! Tell me more about what you do with it."
+      "That's sick, how long have you been into $3?",
+      "Nice! What got you into $3?",
+      "Sounds fun! Tell me more about what you do with $3."
     ]
   },
+  // Topic setter: "I love / like [x]"
   {
-    regex: /^i (love|like) (.*)/i,
+    regex: /^i (love|like) (an?|the)?\s*(.*)/i,
+    setTopicIndex: 3,
     responses: [
-      "Honestly, $2 is pretty awesome. What got you into it?",
-      "Can't go wrong with $2! What's your favorite thing about it?",
-      "Nice taste! I hear a lot of people say good things about $2."
-    ]
-  },
-  {
-    regex: /^i hate (.*)/i,
-    responses: [
-      "Yeah, $1 can be really annoying tbh.",
-      "Fair enough, what made you dislike $1?",
-      "Totally get that. $1 definitely isn't for everyone."
+      "Honestly, $3 is pretty awesome. What got you into it?",
+      "Can't go wrong with $3! What's your favorite thing about it?",
+      "Nice taste! I hear a lot of people say good things about $3."
     ]
   },
   {
     regex: /^i am (playing|watching|listening to|reading|making|working on) (.*)/i,
+    setTopicIndex: 2,
     responses: [
       "Oh nice, how's $2 so far?",
       "Sounds cool! How long have you been into $2?",
@@ -164,35 +185,12 @@ const patterns = [
     ]
   },
   {
-    regex: /^i am (.*)/i,
+    regex: /^i want (an?|the)?\s*(.*)/i,
+    setTopicIndex: 2,
     responses: [
-      "Nice, how long have you been $1?",
-      "Cool! What made you get into being $1?",
-      "Sounds cool being $1."
-    ]
-  },
-  {
-    regex: /^i feel (.*)/i,
-    responses: [
-      "I hear you. What made you feel $1 today?",
-      "That's understandable. Hopefully things get better if it's rough!",
-      "I get that. Did something specific happen?"
-    ]
-  },
-  {
-    regex: /^i want (.*)/i,
-    responses: [
-      "Go for it! What's stopping you from getting $1?",
-      "$1 sounds great. Any plans to get that soon?",
-      "I hope you get $1 soon!"
-    ]
-  },
-  {
-    regex: /^do you (like|know|play|watch) (.*)/i,
-    responses: [
-      "I think $2 is pretty interesting, though I only know what people tell me about it!",
-      "I hear about $2 all the time. Tell me what you think of it!",
-      "A bit! What's your take on $2?"
+      "Go for it! What's stopping you from getting $2?",
+      "$2 sounds great. Any plans to get that soon?",
+      "I hope you get $2 soon!"
     ]
   },
   {
@@ -201,22 +199,6 @@ const patterns = [
       "I'm SimpleAI, just a lightweight bot here to chat!",
       "SimpleAI! Just hanging out in your browser.",
       "I'm SimpleAI, your casual terminal chat partner."
-    ]
-  },
-  {
-    regex: /^(good|great|fine|chilling|not bad)$/i,
-    responses: [
-      "Glad to hear that! Doing anything fun today?",
-      "Awesome. Anything interesting going on?",
-      "Good vibes! What are you working on?"
-    ]
-  },
-  {
-    regex: /^(bad|terrible|bored|tired)$/i,
-    responses: [
-      "Ah man, that sucks. Anything you can do to unwind?",
-      "Tough day? Hope it turns around soon!",
-      "I feel that. Sometimes you just need to chill and take a break."
     ]
   },
   {
@@ -256,7 +238,20 @@ function generateResponse(message) {
   for (let rule of patterns) {
     const match = cleanMessage.match(rule.regex);
     if (match) {
+      if (rule.needsTopic && !currentTopic) {
+        continue;
+      }
+
+      if (rule.setTopicIndex && match[rule.setTopicIndex]) {
+        currentTopic = match[rule.setTopicIndex].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
+      }
+
       let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
+
+      if (rule.needsTopic && currentTopic) {
+        reply = reply.replaceAll("{topic}", currentTopic);
+      }
+
       for (let i = 1; i < match.length; i++) {
         if (match[i]) {
           const transformed = reflectText(match[i]);

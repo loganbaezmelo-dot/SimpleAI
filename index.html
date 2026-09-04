@@ -73,7 +73,7 @@
 <div id="chat-container">
   <div id="chat-log"></div>
   <form id="input-form">
-    <input type="text" id="user-input" autocomplete="off" placeholder="Type your thoughts..." autofocus />
+    <input type="text" id="user-input" autocomplete="off" placeholder="Type a message..." autofocus />
     <button type="submit" id="send-btn">Send</button>
   </form>
 </div>
@@ -84,134 +84,133 @@ const form = document.getElementById("input-form");
 const input = document.getElementById("user-input");
 
 const reflections = {
-  "i am": "you are",
-  "i was": "you were",
   "i": "you",
   "me": "you",
   "my": "your",
   "myself": "yourself",
-  "you are": "I am",
-  "you were": "I was",
-  "you": "me",
+  "am": "are",
+  "was": "were",
+  "i'm": "you're",
+  "you": "I",
   "your": "my",
   "yours": "mine",
   "yourself": "myself",
-  "am": "are"
+  "are": "am"
 };
 
 const patterns = [
   {
-    regex: /^(hello|hi|hey|howdy)(.*)/i,
+    regex: /^(hi|hello|hey|yo|what'?s up|sup)/i,
     responses: [
-      "Hello. What is on your mind today?",
-      "Hi there. How are you feeling right now?",
-      "Greetings. What brings you here?"
+      "Hey! What are you up to?",
+      "Yo! What's going on?",
+      "Hello! What's on your mind today?"
     ]
   },
   {
     regex: /^i (love|like) (.*)/i,
     responses: [
-      "Why do you $1 $2?",
-      "What makes you $1 $2 so much?",
-      "Does loving $2 bring you comfort?"
+      "Honestly, $2 is pretty awesome. What got you into it?",
+      "Can't go wrong with $2! What's your favorite thing about it?",
+      "Nice taste! I hear a lot of people say good things about $2."
     ]
   },
   {
-    regex: /^i feel (.*)/i,
+    regex: /^i hate (.*)/i,
     responses: [
-      "Tell me more about feeling $1.",
-      "Do you often feel $1?",
-      "Does feeling $1 bother you?"
+      "Yeah, $1 can be really annoying tbh.",
+      "Fair enough, what made you dislike $1?",
+      "Totally get that. $1 definitely isn't for everyone."
     ]
   },
   {
-    regex: /^i need (.*)/i,
+    regex: /^i am (playing|watching|listening to|reading|making|working on) (.*)/i,
     responses: [
-      "Why do you need $1?",
-      "Would getting $1 really help you?",
-      "What if you never get $1?"
-    ]
-  },
-  {
-    regex: /^i want (.*)/i,
-    responses: [
-      "What would it mean to you if you got $1?",
-      "Why do you want $1?",
-      "Suppose you got $1 soon, what next?"
+      "Oh nice, how's $2 so far?",
+      "Sounds cool! How long have you been into $2?",
+      "Sweet, I've heard about $2. Are you enjoying it?"
     ]
   },
   {
     regex: /^i am (.*)/i,
     responses: [
-      "How long have you been $1?",
-      "Do you believe it is normal to be $1?",
-      "Did you come to me because you are $1?"
+      "Nice, how long have you been $1?",
+      "Cool! What made you decide to be $1?",
+      "Sounds fun being $1."
     ]
   },
   {
-    regex: /^i (can't|cannot) (.*)/i,
+    regex: /^i feel (.*)/i,
     responses: [
-      "How do you know you can't $2?",
-      "Have you tried to $2?",
-      "Perhaps you could $2 if you really wanted to."
+      "I hear you. What made you feel $1 today?",
+      "That's understandable. Hopefully things get better if it's rough!",
+      "I get that. Did something specific happen?"
     ]
   },
   {
-    regex: /^i don't (.*)/i,
+    regex: /^i want (.*)/i,
     responses: [
-      "Don't you really $1?",
-      "Why don't you $1?",
-      "Does it trouble you that you don't $1?"
+      "Go for it! What's stopping you from getting $1?",
+      "$1 sounds great. Any plans to make that happen soon?",
+      "I hope you get $1 soon!"
     ]
   },
   {
-    regex: /(.*) (mother|father|mom|dad|family|brother|sister)(.*)/i,
+    regex: /^do you (like|know|play|watch) (.*)/i,
     responses: [
-      "Tell me more about your family.",
-      "How does that relate to your parents?",
-      "Did your family influence those thoughts?"
+      "I think $2 is pretty interesting, though I only know what people tell me about it!",
+      "I hear about $2 all the time. Tell me what you think of it!",
+      "A bit! What's your take on $2?"
     ]
   },
   {
-    regex: /^(yes|yeah|sure|yep)/i,
+    regex: /^who are you/i,
     responses: [
-      "You seem quite positive.",
-      "Are you sure?",
-      "I understand. Go on."
+      "I'm SimpleAI, just a lightweight bot here to chat!",
+      "SimpleAI! Just hanging out in your browser.",
+      "I'm SimpleAI, your casual terminal chat partner."
     ]
   },
   {
-    regex: /^(no|nope|nah)/i,
+    regex: /^(good|great|fine|chilling|not bad)$/i,
     responses: [
-      "Why not?",
-      "You sound a bit negative.",
-      "Are you saying that just to disagree?"
+      "Glad to hear that! Doing anything fun today?",
+      "Awesome. Anything interesting going on?",
+      "Good vibes! What are you working on?"
     ]
   },
   {
-    regex: /^(good|great|fine|bad|terrible|okay|ok)$/i,
+    regex: /^(bad|terrible|bored|tired)$/i,
     responses: [
-      "Why do you feel that way?",
-      "What makes things that way for you?",
-      "Can you explain why it is like that?"
+      "Ah man, that sucks. Anything you can do to unwind?",
+      "Tough day? Hope it turns around soon!",
+      "I feel that. Sometimes you just need to chill and take a break."
     ]
   },
   {
-    regex: /^because (.*)/i,
+    regex: /^(yes|yeah|yep|sure|definitely)/i,
     responses: [
-      "Is that the real reason?",
-      "What other reasons might there be?",
-      "Does that reason explain anything else?"
+      "Right on!",
+      "Totally agree.",
+      "100%. Tell me more!"
+    ]
+  },
+  {
+    regex: /^(no|nah|nope)/i,
+    responses: [
+      "Fair enough!",
+      "Haha okay, fair point.",
+      "Makes sense to me."
     ]
   }
 ];
 
 const fallbacks = [
-  "Please, go on.",
-  "What does that suggest to you?",
-  "Can you elaborate on that?",
-  "I'm not sure I understand you fully.",
-  "How does that make you feel?"
+  "That's pretty neat, tell me more!",
+  "Interesting! What else is new?",
+  "Haha nice. What are your plans for later?",
+  "That's cool! What do you mean by that?",
+  "Gotcha. What else have you been up to?"
 ];
 
 function reflectText(text) {
@@ -226,7 +225,6 @@ function generateResponse(message) {
     const match = cleanMessage.match(rule.regex);
     if (match) {
       let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
-      
       for (let i = 1; i < match.length; i++) {
         if (match[i]) {
           const transformed = reflectText(match[i]);
@@ -248,7 +246,7 @@ function appendMessage(sender, text, className) {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-appendMessage("SimpleAI", "How do you do. Please tell me what is troubling you.", "bot");
+appendMessage("SimpleAI", "Hey! What's going on?", "bot");
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -261,7 +259,7 @@ form.addEventListener("submit", (e) => {
   setTimeout(() => {
     const reply = generateResponse(text);
     appendMessage("SimpleAI", reply, "bot");
-  }, 300);
+  }, 250);
 });
 </script>
 

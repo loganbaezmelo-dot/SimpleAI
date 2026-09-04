@@ -108,6 +108,38 @@ const patterns = [
     ]
   },
   {
+    regex: /^(doing|feeling) (great|good|fine|alright|okay|bad|terrible|meh)/i,
+    responses: [
+      "Glad to hear that! Doing anything fun today?",
+      "Nice! What are you working on right now?",
+      "Good to know! What else is going on?"
+    ]
+  },
+  {
+    regex: /^i am (good|great|fine|doing good|doing great|okay|alright)/i,
+    responses: [
+      "Awesome! What are you up to today?",
+      "Glad you're doing well! Playing or working on anything cool?",
+      "Nice! What's new with you?"
+    ]
+  },
+  {
+    regex: /^i have (an?|the|some)?\s*(.*)/i,
+    responses: [
+      "Yo, you have $2? How long have you had that?",
+      "Nice! What do you usually use $2 for?",
+      "Oh cool, how are you liking $2?"
+    ]
+  },
+  {
+    regex: /^i (do|play|make|code|build) (.*)/i,
+    responses: [
+      "That's sick, how long have you been doing that?",
+      "Nice! What got you into that?",
+      "Sounds fun! Tell me more about what you do with it."
+    ]
+  },
+  {
     regex: /^i (love|like) (.*)/i,
     responses: [
       "Honestly, $2 is pretty awesome. What got you into it?",
@@ -135,8 +167,8 @@ const patterns = [
     regex: /^i am (.*)/i,
     responses: [
       "Nice, how long have you been $1?",
-      "Cool! What made you decide to be $1?",
-      "Sounds fun being $1."
+      "Cool! What made you get into being $1?",
+      "Sounds cool being $1."
     ]
   },
   {
@@ -151,7 +183,7 @@ const patterns = [
     regex: /^i want (.*)/i,
     responses: [
       "Go for it! What's stopping you from getting $1?",
-      "$1 sounds great. Any plans to make that happen soon?",
+      "$1 sounds great. Any plans to get that soon?",
       "I hope you get $1 soon!"
     ]
   },

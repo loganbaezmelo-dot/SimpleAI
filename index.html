@@ -109,23 +109,33 @@ const patterns = [
       "Hello! What's on your mind today?"
     ]
   },
-  // Follow-up: "It's doing good", "It is great", "it works"
+  // Handles duration replies like "14 years", "about 2 weeks", "since 2015"
   {
-    regex: /^it('?s| is)?\s*(doing\s+)?(good|great|fine|alright|pretty cool|awesome|working|broken|bad)/i,
+    regex: /^(\d+|a couple|a few|several|since|\w+)\s*(years?|months?|weeks?|days?|hours?|mins?|minutes?|ago|\d{4})?/i,
     responses: [
-      "Glad to hear your {topic} is doing well! What do you like playing or doing on it the most?",
-      "Nice, glad your {topic} is holding up. Any cool stuff you've done with it recently?",
-      "Awesome! Always nice when your {topic} runs smooth. What are you using it for right now?"
+      "Dang, $0? That's a solid amount of time! Still holding up well?",
+      "Whoa, $0 is pretty long! Do you use {topic} pretty often?",
+      "Nice, $0! Sounds like you've had {topic} for a good while."
     ],
     needsTopic: true
   },
-  // Follow-up: "I like it", "I love it"
+  // Follow-up status: "It's doing good", "It is great"
+  {
+    regex: /^it('?s| is)?\s*(doing\s+)?(good|great|fine|alright|pretty cool|awesome|working|broken|bad)/i,
+    responses: [
+      "Glad to hear {topic} is going well! What do you like doing with it the most?",
+      "Nice, glad {topic} is holding up. Any cool stuff you've done with it recently?",
+      "Awesome! Always nice when {topic} works smoothly. What are you using it for lately?"
+    ],
+    needsTopic: true
+  },
+  // Follow-up liking: "I like it", "I love it"
   {
     regex: /^i (love|like|enjoy) it/i,
     responses: [
-      "Awesome! What's the best thing about your {topic} so far?",
-      "Glad you're enjoying your {topic}! How often do you get to use it?",
-      "Nice! What made you like your {topic} so much?"
+      "Awesome! What's the best thing about {topic} so far?",
+      "Glad you're into {topic}! How often do you get to mess with it?",
+      "Nice! What made you get into {topic} in the first place?"
     ],
     needsTopic: true
   },
@@ -145,7 +155,7 @@ const patterns = [
       "Nice! What's new with you?"
     ]
   },
-  // Topic setter: "I have a Wii U"
+  // Topic setters
   {
     regex: /^i have (an?|the|some)?\s*(.*)/i,
     setTopicIndex: 2,
@@ -155,7 +165,6 @@ const patterns = [
       "Oh cool, how are you liking $2?"
     ]
   },
-  // Topic setter: "I play / code / build"
   {
     regex: /^i (do|play|make|code|build) (an?|the)?\s*(.*)/i,
     setTopicIndex: 3,
@@ -165,7 +174,6 @@ const patterns = [
       "Sounds fun! Tell me more about what you do with $3."
     ]
   },
-  // Topic setter: "I love / like [x]"
   {
     regex: /^i (love|like) (an?|the)?\s*(.*)/i,
     setTopicIndex: 3,
@@ -248,9 +256,11 @@ function generateResponse(message) {
 
       let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
 
-      if (rule.needsTopic && currentTopic) {
+      if (currentTopic) {
         reply = reply.replaceAll("{topic}", currentTopic);
       }
+
+      reply = reply.replace("$0", cleanMessage);
 
       for (let i = 1; i < match.length; i++) {
         if (match[i]) {

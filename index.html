@@ -86,25 +86,6 @@ const input = document.getElementById("user-input");
 let currentTopic = "";
 const topicHistory = [];
 
-const typoMap = {
-  "dont": "don't",
-  "dnt": "don't",
-  "hwve": "have",
-  "hav": "have",
-  "haf": "have",
-  "im": "i am",
-  "i'm": "i am",
-  "doint": "doing",
-  "palaying": "playing",
-  "plying": "playing",
-  "wi": "wii",
-  "wat": "what",
-  "wht": "what",
-  "ur": "your",
-  "u": "you",
-  "r": "are"
-};
-
 const reflections = {
   "i": "you",
   "me": "you",
@@ -174,21 +155,21 @@ const patterns = [
   },
   // Contradiction / Denial pattern: checks if they claim they don't have something
   {
-    regex: /^i don'?t have (an?|the|some)?\s*(.*)/i,
+    regex: /^i (don'?t|dont) have (an?|the|some)?\s*(.*)/i,
     isDenial: true,
     responses: [
-      "Wait, what? Didn't you literally just tell me earlier that you had $2?? 💀",
-      "Hold up... I thought you said you had $2? Did you get rid of it or something? 😭",
-      "Wait you don't have $2? Didn't you mention you did just a minute ago??"
+      "Wait, what? Didn't you literally just tell me earlier that you had $3?? 💀",
+      "Hold up... I thought you said you had $3? Did you get rid of it or something? 😭",
+      "Wait you don't have $3? Didn't you mention you did just a minute ago??"
     ]
   },
   {
-    regex: /^i have (an?|the|some)?\s*(.*)/i,
-    setTopicIndex: 2,
+    regex: /^i (have|got) (an?|the|some)?\s*(.*)/i,
+    setTopicIndex: 3,
     responses: [
-      "Yo, you have $2? How long have you had that?",
-      "Nice! What do you usually use $2 for?",
-      "Oh cool, how are you liking $2?"
+      "Yo, you have $3? How long have you had that?",
+      "Nice! What do you usually use $3 for?",
+      "Oh cool, how are you liking $3?"
     ]
   },
   {
@@ -261,19 +242,16 @@ const fallbacks = [
   "Gotcha. What else have you been up to?"
 ];
 
-function cleanAndNormalize(str) {
-  let cleaned = str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
-  let tokens = cleaned.split(/\s+/).map(word => typoMap[word] || word);
-  return tokens.join(" ");
-}
-
 function reflectText(text) {
-  let words = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").split(/\s+/);
-  return words.map(w => reflections[w] || w).join(" ");
+  let words = text.split(/\s+/);
+  return words.map(w => {
+    let lower = w.toLowerCase();
+    return reflections[lower] || w;
+  }).join(" ");
 }
 
 function generateResponse(message) {
-  const cleanMessage = cleanAndNormalize(message);
+  const cleanMessage = message.trim();
 
   for (let rule of patterns) {
     const match = cleanMessage.match(rule.regex);
@@ -284,25 +262,23 @@ function generateResponse(message) {
 
       // Check if user is denying having something
       if (rule.isDenial) {
-        const deniedItem = match[2] ? match[2].trim() : "";
-        // Check if denied item matches anything in history
+        const deniedItem = match[3] ? match[3].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim() : "";
         const caught = topicHistory.find(t => t.toLowerCase() === deniedItem.toLowerCase() || deniedItem.toLowerCase().includes(t.toLowerCase()));
         
         if (caught) {
           let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
-          reply = reply.replace("$2", caught);
-          // Remove it from history since they just denied it
+          reply = reply.replace("$3", caught);
           const idx = topicHistory.indexOf(caught);
           if (idx !== -1) topicHistory.splice(idx, 1);
           currentTopic = "";
           return reply;
         } else {
-          // If they didn't claim to have it before, normal response
           return `Ah gotcha, so no ${deniedItem || "that"}. Any plans to get one eventually?`;
         }
       }
 
       if (rule.setTopicIndex && match[rule.setTopicIndex]) {
+        // Topics are preserved literally (no pronoun reflection applied so "wii u" stays "wii u")
         const extracted = match[rule.setTopicIndex].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
         if (extracted && !topicHistory.includes(extracted)) {
           topicHistory.push(extracted);
@@ -320,15 +296,16 @@ function generateResponse(message) {
 
       for (let i = 1; i < match.length; i++) {
         if (match[i]) {
-          const transformed = reflectText(match[i]);
-          reply = reply.replace(`$${i}`, transformed);
+          // If this capture group is the topic, don't reflect pronouns so "u" doesn't become "I"
+          const val = (i === rule.setTopicIndex) ? match[i].trim() : reflectText(match[i].trim());
+          reply = reply.replace(`$${i}`, val);
         }
       }
       return reply;
     }
   }
 
-  // 35% chance to randomly bring up an old topic if no regex matches
+  // 35% chance to bring back an old topic if nothing matches
   const pastTopics = topicHistory.filter(t => t !== currentTopic);
   if (pastTopics.length > 0 && Math.random() < 0.35) {
     const randomOldTopic = pastTopics[Math.floor(Math.random() * pastTopics.length)];

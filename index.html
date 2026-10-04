@@ -102,6 +102,16 @@ const reflections = {
 };
 
 const patterns = [
+  // Denial / Contradiction check placed FIRST
+  {
+    regex: /^i (don'?t|dont) (have|got) (an?|the|some)?\s*(.*)/i,
+    isDenial: true,
+    responses: [
+      "Wait, what? Didn't you literally just tell me earlier that you had $4?? 💀",
+      "Hold up... I thought you said you had $4? Did you get rid of it or something? 😭",
+      "Wait you don't have $4? Didn't you mention you did just a minute ago??"
+    ]
+  },
   {
     regex: /^(hi|hello|hey|yo|what'?s up|sup)/i,
     responses: [
@@ -110,8 +120,9 @@ const patterns = [
       "Hello! What's on your mind today?"
     ]
   },
+  // Fixed duration check: ONLY matches numbers or time words
   {
-    regex: /^(\d+|a couple|a few|several|since|\w+)\s*(years?|months?|weeks?|days?|hours?|mins?|minutes?|ago|\d{4})?/i,
+    regex: /^(\d+|a couple of?|a few|several|since \d{4}|about \d+)\s*(years?|months?|weeks?|days?|hours?|mins?|minutes?|ago)?/i,
     responses: [
       "Dang, $0? That's a solid amount of time! Still holding up well?",
       "Whoa, $0 is pretty long! Do you use {topic} pretty often?",
@@ -151,16 +162,6 @@ const patterns = [
       "Awesome! What are you up to today?",
       "Glad you're doing well! Playing or working on anything cool?",
       "Nice! What's new with you?"
-    ]
-  },
-  // Contradiction / Denial pattern: checks if they claim they don't have something
-  {
-    regex: /^i (don'?t|dont) have (an?|the|some)?\s*(.*)/i,
-    isDenial: true,
-    responses: [
-      "Wait, what? Didn't you literally just tell me earlier that you had $3?? 💀",
-      "Hold up... I thought you said you had $3? Did you get rid of it or something? 😭",
-      "Wait you don't have $3? Didn't you mention you did just a minute ago??"
     ]
   },
   {
@@ -260,14 +261,13 @@ function generateResponse(message) {
         continue;
       }
 
-      // Check if user is denying having something
       if (rule.isDenial) {
-        const deniedItem = match[3] ? match[3].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim() : "";
-        const caught = topicHistory.find(t => t.toLowerCase() === deniedItem.toLowerCase() || deniedItem.toLowerCase().includes(t.toLowerCase()));
+        const deniedItem = match[4] ? match[4].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim().toLowerCase() : "";
+        const caught = topicHistory.find(t => t.toLowerCase() === deniedItem || deniedItem.includes(t.toLowerCase()) || t.toLowerCase().includes(deniedItem));
         
         if (caught) {
           let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
-          reply = reply.replace("$3", caught);
+          reply = reply.replace("$4", caught);
           const idx = topicHistory.indexOf(caught);
           if (idx !== -1) topicHistory.splice(idx, 1);
           currentTopic = "";
@@ -278,7 +278,6 @@ function generateResponse(message) {
       }
 
       if (rule.setTopicIndex && match[rule.setTopicIndex]) {
-        // Topics are preserved literally (no pronoun reflection applied so "wii u" stays "wii u")
         const extracted = match[rule.setTopicIndex].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
         if (extracted && !topicHistory.includes(extracted)) {
           topicHistory.push(extracted);
@@ -296,7 +295,6 @@ function generateResponse(message) {
 
       for (let i = 1; i < match.length; i++) {
         if (match[i]) {
-          // If this capture group is the topic, don't reflect pronouns so "u" doesn't become "I"
           const val = (i === rule.setTopicIndex) ? match[i].trim() : reflectText(match[i].trim());
           reply = reply.replace(`$${i}`, val);
         }
@@ -305,7 +303,6 @@ function generateResponse(message) {
     }
   }
 
-  // 35% chance to bring back an old topic if nothing matches
   const pastTopics = topicHistory.filter(t => t !== currentTopic);
   if (pastTopics.length > 0 && Math.random() < 0.35) {
     const randomOldTopic = pastTopics[Math.floor(Math.random() * pastTopics.length)];

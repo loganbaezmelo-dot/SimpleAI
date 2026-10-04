@@ -84,6 +84,26 @@ const form = document.getElementById("input-form");
 const input = document.getElementById("user-input");
 
 let currentTopic = "";
+const topicHistory = [];
+
+const typoMap = {
+  "dont": "don't",
+  "dnt": "don't",
+  "hwve": "have",
+  "hav": "have",
+  "haf": "have",
+  "im": "i am",
+  "i'm": "i am",
+  "doint": "doing",
+  "palaying": "playing",
+  "plying": "playing",
+  "wi": "wii",
+  "wat": "what",
+  "wht": "what",
+  "ur": "your",
+  "u": "you",
+  "r": "are"
+};
 
 const reflections = {
   "i": "you",
@@ -109,7 +129,6 @@ const patterns = [
       "Hello! What's on your mind today?"
     ]
   },
-  // Handles duration replies like "14 years", "about 2 weeks", "since 2015"
   {
     regex: /^(\d+|a couple|a few|several|since|\w+)\s*(years?|months?|weeks?|days?|hours?|mins?|minutes?|ago|\d{4})?/i,
     responses: [
@@ -119,7 +138,6 @@ const patterns = [
     ],
     needsTopic: true
   },
-  // Follow-up status: "It's doing good", "It is great"
   {
     regex: /^it('?s| is)?\s*(doing\s+)?(good|great|fine|alright|pretty cool|awesome|working|broken|bad)/i,
     responses: [
@@ -129,7 +147,6 @@ const patterns = [
     ],
     needsTopic: true
   },
-  // Follow-up liking: "I like it", "I love it"
   {
     regex: /^i (love|like|enjoy) it/i,
     responses: [
@@ -155,7 +172,16 @@ const patterns = [
       "Nice! What's new with you?"
     ]
   },
-  // Topic setters
+  // Contradiction / Denial pattern: checks if they claim they don't have something
+  {
+    regex: /^i don'?t have (an?|the|some)?\s*(.*)/i,
+    isDenial: true,
+    responses: [
+      "Wait, what? Didn't you literally just tell me earlier that you had $2?? 💀",
+      "Hold up... I thought you said you had $2? Did you get rid of it or something? 😭",
+      "Wait you don't have $2? Didn't you mention you did just a minute ago??"
+    ]
+  },
   {
     regex: /^i have (an?|the|some)?\s*(.*)/i,
     setTopicIndex: 2,
@@ -202,7 +228,7 @@ const patterns = [
     ]
   },
   {
-    regex: /^who are you/i,
+    regex: /^(who|what) are you/i,
     responses: [
       "I'm SimpleAI, just a lightweight bot here to chat!",
       "SimpleAI! Just hanging out in your browser.",
@@ -235,13 +261,19 @@ const fallbacks = [
   "Gotcha. What else have you been up to?"
 ];
 
+function cleanAndNormalize(str) {
+  let cleaned = str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
+  let tokens = cleaned.split(/\s+/).map(word => typoMap[word] || word);
+  return tokens.join(" ");
+}
+
 function reflectText(text) {
   let words = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").split(/\s+/);
   return words.map(w => reflections[w] || w).join(" ");
 }
 
 function generateResponse(message) {
-  const cleanMessage = message.trim();
+  const cleanMessage = cleanAndNormalize(message);
 
   for (let rule of patterns) {
     const match = cleanMessage.match(rule.regex);
@@ -250,8 +282,32 @@ function generateResponse(message) {
         continue;
       }
 
+      // Check if user is denying having something
+      if (rule.isDenial) {
+        const deniedItem = match[2] ? match[2].trim() : "";
+        // Check if denied item matches anything in history
+        const caught = topicHistory.find(t => t.toLowerCase() === deniedItem.toLowerCase() || deniedItem.toLowerCase().includes(t.toLowerCase()));
+        
+        if (caught) {
+          let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
+          reply = reply.replace("$2", caught);
+          // Remove it from history since they just denied it
+          const idx = topicHistory.indexOf(caught);
+          if (idx !== -1) topicHistory.splice(idx, 1);
+          currentTopic = "";
+          return reply;
+        } else {
+          // If they didn't claim to have it before, normal response
+          return `Ah gotcha, so no ${deniedItem || "that"}. Any plans to get one eventually?`;
+        }
+      }
+
       if (rule.setTopicIndex && match[rule.setTopicIndex]) {
-        currentTopic = match[rule.setTopicIndex].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
+        const extracted = match[rule.setTopicIndex].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
+        if (extracted && !topicHistory.includes(extracted)) {
+          topicHistory.push(extracted);
+        }
+        currentTopic = extracted;
       }
 
       let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
@@ -270,6 +326,19 @@ function generateResponse(message) {
       }
       return reply;
     }
+  }
+
+  // 35% chance to randomly bring up an old topic if no regex matches
+  const pastTopics = topicHistory.filter(t => t !== currentTopic);
+  if (pastTopics.length > 0 && Math.random() < 0.35) {
+    const randomOldTopic = pastTopics[Math.floor(Math.random() * pastTopics.length)];
+    const callouts = [
+      `Wait, didn't you mention earlier that you have ${randomOldTopic}?`,
+      `Random question, but are you still using that ${randomOldTopic}?`,
+      `By the way, how often do you even mess with ${randomOldTopic} these days?`
+    ];
+    currentTopic = randomOldTopic;
+    return callouts[Math.floor(Math.random() * callouts.length)];
   }
 
   return fallbacks[Math.floor(Math.random() * fallbacks.length)];

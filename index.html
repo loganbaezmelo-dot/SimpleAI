@@ -83,8 +83,39 @@ const chatLog = document.getElementById("chat-log");
 const form = document.getElementById("input-form");
 const input = document.getElementById("user-input");
 
-let currentTopic = "";
+// Holds up to 50 topics historically
 const topicHistory = [];
+// Holds the 3 most recent active topics (last element is current)
+let activeTopics = [];
+
+function getCurrentTopic() {
+  return activeTopics.length > 0 ? activeTopics[activeTopics.length - 1] : "";
+}
+
+function pushTopic(topic) {
+  const clean = topic.trim().toLowerCase();
+  if (!clean) return;
+
+  // Add to 50-topic master history
+  const histIndex = topicHistory.indexOf(clean);
+  if (histIndex !== -1) {
+    topicHistory.splice(histIndex, 1);
+  }
+  topicHistory.push(clean);
+  if (topicHistory.length > 50) {
+    topicHistory.shift();
+  }
+
+  // Manage active buffer of last 3 topics
+  const actIndex = activeTopics.indexOf(clean);
+  if (actIndex !== -1) {
+    activeTopics.splice(actIndex, 1);
+  }
+  activeTopics.push(clean);
+  if (activeTopics.length > 3) {
+    activeTopics.shift();
+  }
+}
 
 const reflections = {
   "i": "you",
@@ -102,13 +133,13 @@ const reflections = {
 };
 
 const patterns = [
-  // Denial / Contradiction check placed FIRST
+  // Denial / Contradiction check
   {
     regex: /^i (don'?t|dont) (have|got) (an?|the|some)?\s*(.*)/i,
     isDenial: true,
     responses: [
       "Wait, what? Didn't you literally just tell me earlier that you had $4?? 💀",
-      "Hold up... I thought you said you had $4? Did you get rid of it or something? 😭",
+      "Hold up... I know for a fact you said you had $4 earlier, stop capping 😭",
       "Wait you don't have $4? Didn't you mention you did just a minute ago??"
     ]
   },
@@ -120,7 +151,6 @@ const patterns = [
       "Hello! What's on your mind today?"
     ]
   },
-  // Fixed duration check: ONLY matches numbers or time words
   {
     regex: /^(\d+|a couple of?|a few|several|since \d{4}|about \d+)\s*(years?|months?|weeks?|days?|hours?|mins?|minutes?|ago)?/i,
     responses: [
@@ -164,8 +194,10 @@ const patterns = [
       "Nice! What's new with you?"
     ]
   },
+  // Topic setter: "I have X"
   {
     regex: /^i (have|got) (an?|the|some)?\s*(.*)/i,
+    isHaveClaim: true,
     setTopicIndex: 3,
     responses: [
       "Yo, you have $3? How long have you had that?",
@@ -253,42 +285,53 @@ function reflectText(text) {
 
 function generateResponse(message) {
   const cleanMessage = message.trim();
+  const current = getCurrentTopic();
 
   for (let rule of patterns) {
     const match = cleanMessage.match(rule.regex);
     if (match) {
-      if (rule.needsTopic && !currentTopic) {
+      if (rule.needsTopic && !current) {
         continue;
       }
 
+      // Check denial/contradiction across all known history
       if (rule.isDenial) {
         const deniedItem = match[4] ? match[4].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim().toLowerCase() : "";
-        const caught = topicHistory.find(t => t.toLowerCase() === deniedItem || deniedItem.includes(t.toLowerCase()) || t.toLowerCase().includes(deniedItem));
+        const caught = topicHistory.find(t => t === deniedItem || deniedItem.includes(t) || t.includes(deniedItem));
         
         if (caught) {
           let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
-          reply = reply.replace("$4", caught);
-          const idx = topicHistory.indexOf(caught);
-          if (idx !== -1) topicHistory.splice(idx, 1);
-          currentTopic = "";
-          return reply;
+          return reply.replace("$4", caught);
         } else {
           return `Ah gotcha, so no ${deniedItem || "that"}. Any plans to get one eventually?`;
         }
       }
 
+      // Check if user is repeating something they already told us they have
+      if (rule.isHaveClaim && match[3]) {
+        const claimed = match[3].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim().toLowerCase();
+        const alreadyKnown = topicHistory.find(t => t === claimed || claimed.includes(t) || t.includes(claimed));
+        if (alreadyKnown) {
+          pushTopic(alreadyKnown); // shift to latest of top 3
+          const repeatReplies = [
+            `Yeah, you already told me you had ${alreadyKnown} earlier! 💀 Did you do anything new with it?`,
+            `I already know you have ${alreadyKnown} lol! Still having fun with it?`,
+            `You mentioned your ${alreadyKnown} already! Tell me something new about it.`
+          ];
+          return repeatReplies[Math.floor(Math.random() * repeatReplies.length)];
+        }
+      }
+
       if (rule.setTopicIndex && match[rule.setTopicIndex]) {
         const extracted = match[rule.setTopicIndex].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
-        if (extracted && !topicHistory.includes(extracted)) {
-          topicHistory.push(extracted);
-        }
-        currentTopic = extracted;
+        pushTopic(extracted);
       }
 
       let reply = rule.responses[Math.floor(Math.random() * rule.responses.length)];
 
-      if (currentTopic) {
-        reply = reply.replaceAll("{topic}", currentTopic);
+      const activeNow = getCurrentTopic();
+      if (activeNow) {
+        reply = reply.replaceAll("{topic}", activeNow);
       }
 
       reply = reply.replace("$0", cleanMessage);
@@ -303,15 +346,16 @@ function generateResponse(message) {
     }
   }
 
-  const pastTopics = topicHistory.filter(t => t !== currentTopic);
-  if (pastTopics.length > 0 && Math.random() < 0.35) {
-    const randomOldTopic = pastTopics[Math.floor(Math.random() * pastTopics.length)];
+  // Check standby topics in active window (the other 2 in the latest 3)
+  const standbys = activeTopics.slice(0, -1);
+  if (standbys.length > 0 && Math.random() < 0.35) {
+    const standbyTopic = standbys[Math.floor(Math.random() * standbys.length)];
     const callouts = [
-      `Wait, didn't you mention earlier that you have ${randomOldTopic}?`,
-      `Random question, but are you still using that ${randomOldTopic}?`,
-      `By the way, how often do you even mess with ${randomOldTopic} these days?`
+      `Wait, going back to what you said earlier, are you still using that ${standbyTopic}?`,
+      `By the way, how often do you even mess with ${standbyTopic} these days?`,
+      `Random thought, but what's your favorite thing about ${standbyTopic}?`
     ];
-    currentTopic = randomOldTopic;
+    pushTopic(standbyTopic); // pull it back to current
     return callouts[Math.floor(Math.random() * callouts.length)];
   }
 
